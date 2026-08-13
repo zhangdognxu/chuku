@@ -47,12 +47,14 @@
   <input type="text" id="usage" value="现场安全整改">
 
   <button type="button" onclick="submitForm()">提交申请</button>
-  <p class="tip" id="tip">提交后会打开邮件应用，点「发送」即完成提交。</p>
+  <button type="button" onclick="sendByMail()" style="background:#607d8b;margin-top:10px;">手动发邮件(备用)</button>
+  <p class="tip" id="tip">点提交后无需操作，稍候提示成功。</p>
 </div>
 
 <script>
 // ============ 配置(部署前填写) ============
-var MAIL_TO = "你的邮箱@qq.com"; // 接收出库申请的邮箱
+var MAIL_TO = "1963718876@qq.com"; // 接收出库申请的邮箱
+var FORM_URL = "https://formsubmit.co/1963718876@qq.com"; // 表单中转服务
 // ==========================================
 
 function getParam(name) {
@@ -68,30 +70,64 @@ document.getElementById("m_code").textContent = code;
 document.getElementById("m_name").textContent = name || "（扫码进入）";
 document.getElementById("m_spec").textContent = spec || "-";
 
-function submitForm() {
+function collectFields() {
   var qty = document.getElementById("qty").value.trim();
   var dept = document.getElementById("dept").value;
   var unit = document.getElementById("unit").value;
   var usage = document.getElementById("usage").value.trim() || "现场安全整改";
   if (!qty || !dept || !unit) {
     alert("请填写数量和部门/机组");
-    return;
+    return null;
   }
   var deptParts = dept.split("|");
   var unitParts = unit.split("|");
+  return {
+    code: code,
+    qty: qty,
+    deptName: deptParts[1],
+    deptId: deptParts[0],
+    unitName: unitParts[1],
+    unitCode: unitParts[0],
+    usage: usage
+  };
+}
+
+function submitForm() {
+  var f = collectFields();
+  if (!f) return;
+  var fd = new FormData();
+  fd.append("_subject", "[出库]" + f.code);
+  fd.append("资材代码", f.code);
+  fd.append("出库数量", f.qty);
+  fd.append("部门", f.deptName + " (" + f.deptId + ")");
+  fd.append("机组", f.unitName + " (" + f.unitCode + ")");
+  fd.append("用途", f.usage);
+  document.getElementById("tip").textContent = "正在提交，请稍候...";
+  fetch(FORM_URL, { method: "POST", body: fd, mode: "no-cors" })
+    .then(function () {
+      document.getElementById("tip").textContent = "✅ 提交成功！后台将自动处理。";
+    })
+    .catch(function () {
+      sendByMail();
+    });
+}
+
+function sendByMail() {
+  var f = collectFields();
+  if (!f) return;
   var body = [
-    "资材代码: " + code,
-    "出库数量: " + qty,
-    "部门: " + deptParts[1] + " (" + deptParts[0] + ")",
-    "机组: " + unitParts[1] + " (" + unitParts[0] + ")",
-    "用途: " + usage,
+    "资材代码: " + f.code,
+    "出库数量: " + f.qty,
+    "部门: " + f.deptName + " (" + f.deptId + ")",
+    "机组: " + f.unitName + " (" + f.unitCode + ")",
+    "用途: " + f.usage,
     "时间: " + new Date().toLocaleString()
   ].join("\n");
-  var subject = "[出库]" + code;
+  var subject = "[出库]" + f.code;
   window.location.href = "mailto:" + MAIL_TO +
     "?subject=" + encodeURIComponent(subject) +
     "&body=" + encodeURIComponent(body);
-  document.getElementById("tip").textContent = "已打开邮件应用，请确认后点「发送」。";
+  document.getElementById("tip").textContent = "已打开邮件应用，点「发送」完成提交。";
 }
 </script>
 </body>
