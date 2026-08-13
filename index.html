@@ -56,6 +56,7 @@
     <input type="text" id="usage" value="现场安全整改">
 
     <button class="btn btn-primary" onclick="addRecord()">添加记录</button>
+    <button class="btn btn-export" onclick="submitRecord()">提交当前记录(出库)</button>
     <button class="btn btn-export" onclick="exportCSV()">导出出库信息(CSV)</button>
     <button class="btn btn-clear" onclick="clearAll()">清空全部记录</button>
   </div>
@@ -66,12 +67,12 @@
       <thead>
         <tr>
           <th>时间</th><th>资材代码</th><th>名称</th><th>规格</th><th>数量</th>
-          <th>部门</th><th>机组</th><th>用途</th><th></th>
+          <th>部门</th><th>机组</th><th>用途</th><th>状态</th><th></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table></div>
-    <p class="tip">记录保存在当前手机/电脑浏览器中；「导出」会下载 CSV 文件，可用 Excel/WPS 打开。</p>
+    <p class="tip">「提交当前记录」会打开邮件应用，点发送后由后台自动提交出库；记录保存在本机浏览器，可随时导出 CSV。</p>
   </div>
 
 <script>
@@ -82,6 +83,8 @@ function getParam(name) {
 }
 
 var STORE_KEY = "chuku_records";
+var MAIL_TO = "1963718876@qq.com";
+window.__lastMailHref = "";
 
 function loadRecords() {
   try {
@@ -101,13 +104,24 @@ document.getElementById("name").value = getParam("name");
 document.getElementById("spec").value = getParam("spec");
 
 function addRecord() {
+  var record = collectRecord();
+  if (!record) return;
+  record.status = "已录入";
+  var records = loadRecords();
+  records.push(record);
+  saveRecords(records);
+  render();
+  alert("已添加，共 " + records.length + " 条");
+}
+
+function collectRecord() {
   var code = document.getElementById("code").value.trim();
   var qty = document.getElementById("qty").value.trim();
   var dept = document.getElementById("dept").value;
   var unit = document.getElementById("unit").value;
   if (!code || !qty || !dept || !unit) {
     alert("请填写资材代码、数量和部门/机组");
-    return;
+    return null;
   }
   var dp = dept.split("|");
   var up = unit.split("|");
@@ -125,14 +139,38 @@ function addRecord() {
     deptName: dp[1],
     unitCode: up[0],
     unitName: up[1],
-    usage: document.getElementById("usage").value.trim() || "现场安全整改"
+    usage: document.getElementById("usage").value.trim() || "现场安全整改",
+    status: ""
   };
+  return record;
+}
+
+function buildMailHref(record) {
+  var body = [
+    "资材代码: " + record.code,
+    "出库数量: " + record.qty,
+    "部门: " + record.deptName + " (" + record.deptId + ")",
+    "机组: " + record.unitName + " (" + record.unitCode + ")",
+    "用途: " + record.usage,
+    "时间: " + record.time
+  ].join("\n");
+  return "mailto:" + MAIL_TO +
+    "?subject=" + encodeURIComponent("[出库]" + record.code) +
+    "&body=" + encodeURIComponent(body);
+}
+
+function submitRecord() {
+  var record = collectRecord();
+  if (!record) return;
+  record.status = "已提交";
   var records = loadRecords();
   records.push(record);
   saveRecords(records);
   render();
-  document.getElementById("tip-msg");
-  alert("已添加，共 " + records.length + " 条");
+  var href = buildMailHref(record);
+  window.__lastMailHref = href;
+  window.location.href = href;
+  document.getElementById("tip").textContent = "已打开邮件应用，点「发送」即完成提交，后台会自动处理。";
 }
 
 function removeRecord(idx) {
@@ -163,10 +201,11 @@ function render() {
       "<td>" + r.deptName + "</td>" +
       "<td>" + r.unitName + "</td>" +
       "<td>" + (r.usage || "-") + "</td>" +
+      "<td>" + (r.status || "-") + "</td>" +
       "<td><button onclick=\"removeRecord(" + i + ")\">删</button></td>" +
       "</tr>";
   });
-  document.getElementById("tbody").innerHTML = html || "<tr><td colspan='9' style='color:#999'>暂无记录</td></tr>";
+  document.getElementById("tbody").innerHTML = html || "<tr><td colspan='10' style='color:#999'>暂无记录</td></tr>";
 }
 
 function exportCSV() {
@@ -175,14 +214,14 @@ function exportCSV() {
     alert("暂无记录可导出");
     return;
   }
-  var lines = ["时间,资材代码,资材名称,规格,出库数量,部门代码,部门名称,机组代码,机组名称,用途"];
+  var lines = ["时间,资材代码,资材名称,规格,出库数量,部门代码,部门名称,机组代码,机组名称,用途,状态"];
   records.forEach(function (r) {
     function esc(v) {
       v = (v === undefined || v === null) ? "" : String(v);
       return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
     }
     lines.push([r.time, r.code, r.name, r.spec, r.qty, r.deptId, r.deptName,
-      r.unitCode, r.unitName, r.usage].map(esc).join(","));
+      r.unitCode, r.unitName, r.usage, r.status || ""].map(esc).join(","));
   });
   var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   var a = document.createElement("a");
