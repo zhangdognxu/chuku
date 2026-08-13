@@ -3,110 +3,200 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <title>资材出库申请</title>
+  <title>资材出库信息录入</title>
   <style>
     body { font-family: "Microsoft YaHei", sans-serif; background: #f2f4f7; margin: 0; padding: 16px; }
-    .card { background: #fff; border-radius: 12px; padding: 20px; max-width: 460px; margin: 0 auto; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-    h2 { margin: 0 0 12px; color: #222; }
-    .material { background: #eef6ff; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-    .material .row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 15px; }
-    .material .row span:first-child { color: #666; }
-    label { display: block; margin: 12px 0 4px; font-size: 15px; color: #333; }
-    input, select { width: 100%; box-sizing: border-box; font-size: 18px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
-    button { width: 100%; margin-top: 20px; font-size: 20px; padding: 14px; background: #2f7d32; color: #fff; border: none; border-radius: 10px; }
-    button:active { background: #256128; }
-    .tip { margin-top: 12px; font-size: 14px; color: #888; }
+    .card { background: #fff; border-radius: 12px; padding: 18px; max-width: 520px; margin: 0 auto 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+    h2 { margin: 0 0 10px; font-size: 20px; color: #222; }
+    label { display: block; margin: 10px 0 4px; font-size: 14px; color: #333; }
+    input, select { width: 100%; box-sizing: border-box; font-size: 16px; padding: 9px; border: 1px solid #ccc; border-radius: 8px; }
+    .btn { width: 100%; margin-top: 14px; font-size: 17px; padding: 12px; border: none; border-radius: 10px; color: #fff; }
+    .btn-primary { background: #2f7d32; }
+    .btn-export { background: #1565c0; }
+    .btn-clear { background: #b71c1c; }
+    .btn:active { opacity: .85; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px 4px; text-align: left; word-break: break-all; }
+    th { background: #eef6ff; position: sticky; top: 0; }
+    .wrap { max-height: 320px; overflow: auto; }
+    .tip { margin-top: 8px; font-size: 12px; color: #888; }
+    .count { color: #1565c0; font-weight: bold; }
   </style>
 </head>
 <body>
-<div class="card">
-  <h2>资材出库申请</h2>
-  <div class="material">
-    <div class="row"><span>资材代码</span><span id="m_code">-</span></div>
-    <div class="row"><span>资材名称</span><span id="m_name">-</span></div>
-    <div class="row"><span>规格</span><span id="m_spec">-</span></div>
+  <div class="card">
+    <h2>资材出库信息录入</h2>
+
+    <label>资材代码 *</label>
+    <input type="text" id="code" placeholder="扫码自动带出，也可手输">
+
+    <label>资材名称</label>
+    <input type="text" id="name">
+
+    <label>规格</label>
+    <input type="text" id="spec">
+
+    <label>出库数量 *</label>
+    <input type="number" id="qty" value="1" min="0.01" step="any">
+
+    <label>部门 *</label>
+    <select id="dept">
+      <option value="JP607200|长春宝友二厂作业区">长春宝友二厂作业区</option>
+      <option value="JP607900|长春宝友设备组">长春宝友设备组</option>
+      <option value="JP206000|长春宝友生产部" selected>长春宝友生产部</option>
+    </select>
+
+    <label>机组 *</label>
+    <select id="unit">
+      <option value="P2|激光二号线">激光二号线</option>
+      <option value="W3|设备组" selected>设备组</option>
+    </select>
+
+    <label>用途</label>
+    <input type="text" id="usage" value="现场安全整改">
+
+    <button class="btn btn-primary" onclick="addRecord()">添加记录</button>
+    <button class="btn btn-export" onclick="exportCSV()">导出出库信息(CSV)</button>
+    <button class="btn btn-clear" onclick="clearAll()">清空全部记录</button>
   </div>
 
-  <label>出库数量 *</label>
-  <input type="number" id="qty" value="1" min="0.01" step="any">
-
-  <label>部门 *</label>
-  <select id="dept">
-    <option value="JP607200|长春宝友二厂作业区">长春宝友二厂作业区</option>
-    <option value="JP607900|长春宝友设备组">长春宝友设备组</option>
-    <option value="JP206000|长春宝友生产部" selected>长春宝友生产部</option>
-  </select>
-
-  <label>机组 *</label>
-  <select id="unit">
-    <option value="P2|激光二号线">激光二号线</option>
-    <option value="W3|设备组" selected>设备组</option>
-  </select>
-
-  <label>用途</label>
-  <input type="text" id="usage" value="现场安全整改">
-
-  <button type="button" onclick="submitForm()">提交申请</button>
-  <p class="tip" id="tip">提交后会打开邮件应用，点「发送」即完成提交（后台自动收件处理）。</p>
-</div>
+  <div class="card">
+    <h2>已录入记录（<span class="count" id="count">0</span> 条）</h2>
+    <div class="wrap"><table id="table">
+      <thead>
+        <tr>
+          <th>时间</th><th>资材代码</th><th>名称</th><th>规格</th><th>数量</th>
+          <th>部门</th><th>机组</th><th>用途</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table></div>
+    <p class="tip">记录保存在当前手机/电脑浏览器中；「导出」会下载 CSV 文件，可用 Excel/WPS 打开。</p>
+  </div>
 
 <script>
-// ============ 配置(部署前填写) ============
-var MAIL_TO = "1963718876@qq.com"; // 接收出库申请的邮箱
-// ==========================================
-
+// ========== 读取二维码携带的参数 ==========
 function getParam(name) {
   var m = location.search.match(new RegExp("[?&]" + name + "=([^&]+)"));
-  return m ? decodeURIComponent(m[1]) : "";
+  return m ? decodeURIComponent(m[1].replace(/\+/g, "%20")) : "";
 }
 
-var code = getParam("code") || "未知";
-var name = getParam("name") || "";
-var spec = getParam("spec") || "";
+var STORE_KEY = "chuku_records";
 
-document.getElementById("m_code").textContent = code;
-document.getElementById("m_name").textContent = name || "（扫码进入）";
-document.getElementById("m_spec").textContent = spec || "-";
+function loadRecords() {
+  try {
+    return JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+  } catch (e) {
+    return [];
+  }
+}
 
-function collectFields() {
+function saveRecords(records) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(records));
+}
+
+// 预填二维码参数
+document.getElementById("code").value = getParam("code");
+document.getElementById("name").value = getParam("name");
+document.getElementById("spec").value = getParam("spec");
+
+function addRecord() {
+  var code = document.getElementById("code").value.trim();
   var qty = document.getElementById("qty").value.trim();
   var dept = document.getElementById("dept").value;
   var unit = document.getElementById("unit").value;
-  var usage = document.getElementById("usage").value.trim() || "现场安全整改";
-  if (!qty || !dept || !unit) {
-    alert("请填写数量和部门/机组");
-    return null;
+  if (!code || !qty || !dept || !unit) {
+    alert("请填写资材代码、数量和部门/机组");
+    return;
   }
-  var deptParts = dept.split("|");
-  var unitParts = unit.split("|");
-  return {
+  var dp = dept.split("|");
+  var up = unit.split("|");
+  var now = new Date();
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  var time = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate()) +
+    " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+  var record = {
+    time: time,
     code: code,
+    name: document.getElementById("name").value.trim(),
+    spec: document.getElementById("spec").value.trim(),
     qty: qty,
-    deptName: deptParts[1],
-    deptId: deptParts[0],
-    unitName: unitParts[1],
-    unitCode: unitParts[0],
-    usage: usage
+    deptId: dp[0],
+    deptName: dp[1],
+    unitCode: up[0],
+    unitName: up[1],
+    usage: document.getElementById("usage").value.trim() || "现场安全整改"
   };
+  var records = loadRecords();
+  records.push(record);
+  saveRecords(records);
+  render();
+  document.getElementById("tip-msg");
+  alert("已添加，共 " + records.length + " 条");
 }
 
-function submitForm() {
-  var f = collectFields();
-  if (!f) return;
-  var body = [
-    "资材代码: " + f.code,
-    "出库数量: " + f.qty,
-    "部门: " + f.deptName + " (" + f.deptId + ")",
-    "机组: " + f.unitName + " (" + f.unitCode + ")",
-    "用途: " + f.usage,
-    "时间: " + new Date().toLocaleString()
-  ].join("\n");
-  var subject = "[出库]" + f.code;
-  window.location.href = "mailto:" + MAIL_TO +
-    "?subject=" + encodeURIComponent(subject) +
-    "&body=" + encodeURIComponent(body);
-  document.getElementById("tip").textContent = "已打开邮件应用，点「发送」完成提交。";
+function removeRecord(idx) {
+  var records = loadRecords();
+  records.splice(idx, 1);
+  saveRecords(records);
+  render();
 }
+
+function clearAll() {
+  if (confirm("确定清空全部记录？")) {
+    localStorage.removeItem(STORE_KEY);
+    render();
+  }
+}
+
+function render() {
+  var records = loadRecords();
+  document.getElementById("count").textContent = records.length;
+  var html = "";
+  records.forEach(function (r, i) {
+    html += "<tr>" +
+      "<td>" + r.time + "</td>" +
+      "<td>" + r.code + "</td>" +
+      "<td>" + (r.name || "-") + "</td>" +
+      "<td>" + (r.spec || "-") + "</td>" +
+      "<td>" + r.qty + "</td>" +
+      "<td>" + r.deptName + "</td>" +
+      "<td>" + r.unitName + "</td>" +
+      "<td>" + (r.usage || "-") + "</td>" +
+      "<td><button onclick=\"removeRecord(" + i + ")\">删</button></td>" +
+      "</tr>";
+  });
+  document.getElementById("tbody").innerHTML = html || "<tr><td colspan='9' style='color:#999'>暂无记录</td></tr>";
+}
+
+function exportCSV() {
+  var records = loadRecords();
+  if (!records.length) {
+    alert("暂无记录可导出");
+    return;
+  }
+  var lines = ["时间,资材代码,资材名称,规格,出库数量,部门代码,部门名称,机组代码,机组名称,用途"];
+  records.forEach(function (r) {
+    function esc(v) {
+      v = (v === undefined || v === null) ? "" : String(v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+    lines.push([r.time, r.code, r.name, r.spec, r.qty, r.deptId, r.deptName,
+      r.unitCode, r.unitName, r.usage].map(esc).join(","));
+  });
+  var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "出库信息_" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 200);
+}
+
+render();
 </script>
 </body>
 </html>
